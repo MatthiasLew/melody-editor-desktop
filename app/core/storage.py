@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import json
 import logging
 from datetime import datetime
@@ -16,7 +17,10 @@ class Storage:
     """Local JSON storage used as a lightweight replacement for backend persistence."""
 
     def __init__(self) -> None:
-        self.root_dir = Path(__file__).resolve().parents[2]
+        if getattr(sys, "frozen", False):
+            self.root_dir = Path(sys.executable).resolve().parent
+        else:
+            self.root_dir = Path(__file__).resolve().parents[2]
         self.data_dir = self.root_dir / "data"
         self.data_dir.mkdir(parents=True, exist_ok=True)
 
