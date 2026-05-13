@@ -9,7 +9,6 @@ from typing import Any
 
 from app.core.models import AppSettings, Project
 
-
 LOGGER = logging.getLogger(__name__)
 
 
@@ -72,6 +71,34 @@ class Storage:
 
         self.save_current_project(project)
         return projects
+
+    def export_project_to_file(self, project: Project, target_path: str | Path) -> None:
+        """Export a single project to a user-selected JSON file."""
+        path = Path(target_path)
+
+        if path.suffix.lower() != ".json":
+            path = path.with_suffix(".json")
+
+        export_data = project.to_dict()
+        export_data["exported_at"] = self._now_iso()
+        export_data["file_type"] = "melody_editor_project"
+
+        self._write_json(path, export_data)
+
+    def import_project_from_file(self, source_path: str | Path) -> Project:
+        """Import a project from a user-selected JSON file."""
+        path = Path(source_path)
+        data = self._read_json(path, default=None)
+
+        if not isinstance(data, dict):
+            raise ValueError("Selected file does not contain a valid project.")
+
+        project = Project.from_dict(data)
+
+        if not project.name.strip():
+            raise ValueError("Imported project has an empty name.")
+
+        return project
 
     def delete_project(self, project_name: str) -> list[Project]:
         projects = self.load_saved_projects()

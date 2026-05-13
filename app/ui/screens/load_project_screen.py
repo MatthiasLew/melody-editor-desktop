@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QFileDialog,
     QFrame,
     QGridLayout,
     QLabel,
@@ -35,6 +36,9 @@ TEXTS = {
         "warning_title": "Load Project",
         "select_first": "Select a project first.",
         "delete_title": "Delete Project",
+        "import": "Import JSON...",
+        "imported": "Project imported successfully.",
+        "import_error": "Could not import selected file.",
         "delete_question": "Delete project '{name}'?",
         "details": (
             "Tempo: {tempo} BPM\n"
@@ -56,6 +60,9 @@ TEXTS = {
         "back": "Powrót",
         "open": "▣  Otwórz projekt",
         "delete": "Usuń",
+        "import": "Importuj JSON...",
+        "imported": "Projekt został zaimportowany.",
+        "import_error": "Nie udało się zaimportować wybranego pliku.",
         "warning_title": "Wczytaj projekt",
         "select_first": "Najpierw wybierz projekt.",
         "delete_title": "Usuń projekt",
@@ -144,17 +151,20 @@ class LoadProjectScreen(BaseScreen):
 
         self.back_bottom_button = self.normal_button("")
         self.open_button = self.primary_button("")
+        self.import_button = self.normal_button("")
         self.delete_button = self.normal_button("")
         self.delete_button.setObjectName("dangerButton")
 
         self.back_bottom_button.clicked.connect(lambda: self.controller.show_screen("start"))
         self.open_button.clicked.connect(self.open_selected_project)
+        self.import_button.clicked.connect(self.import_project)
         self.delete_button.clicked.connect(self.delete_selected_project)
 
         layout.addLayout(
             self.horizontal_buttons(
                 self.back_bottom_button,
                 self.open_button,
+                self.import_button,
                 self.delete_button,
             )
         )
@@ -212,6 +222,37 @@ class LoadProjectScreen(BaseScreen):
         self.controller.set_current_project(project)
         self.controller.show_screen("editor")
 
+    def import_project(self) -> None:
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            self._t("import"),
+            "",
+            "JSON files (*.json)",
+        )
+
+        if not file_path:
+            return
+
+        try:
+            project = self.controller.storage.import_project_from_file(file_path)
+            self.controller.storage.save_project_to_library(project)
+            self.controller.set_current_project(project)
+        except Exception as error:
+            QMessageBox.critical(
+                self,
+                self._t("warning_title"),
+                f"{self._t('import_error')}\n\n{error}",
+            )
+            return
+
+        QMessageBox.information(
+            self,
+            self._t("warning_title"),
+            self._t("imported"),
+        )
+
+        self.controller.show_screen("editor")
+
     def delete_selected_project(self) -> None:
         project = self.selected_project()
 
@@ -266,6 +307,7 @@ class LoadProjectScreen(BaseScreen):
         self.project_details_label.setText(self._t("project_details"))
         self.back_bottom_button.setText(self._t("back"))
         self.open_button.setText(self._t("open"))
+        self.import_button.setText(self._t("import"))
         self.delete_button.setText(self._t("delete"))
 
     def _t(self, key: str) -> str:

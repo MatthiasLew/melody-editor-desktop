@@ -3,8 +3,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QFrame, QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QVBoxLayout
-
+from PySide6.QtWidgets import (
+    QFileDialog,
+    QFrame,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QVBoxLayout,
+)
 from app.core.models import Project
 from app.ui.screens.base import BaseScreen
 
@@ -29,6 +36,9 @@ TEXTS = {
         "no_project": "There is no active project to save.",
         "empty_name": "File name cannot be empty.",
         "saved": "Project saved locally to JSON.",
+        "export": "Export JSON...",
+        "exported": "Project exported successfully.",
+        "export_error": "Could not export project.",
     },
     "pl": {
         "back": "←  Powrót do edytora",
@@ -46,6 +56,9 @@ TEXTS = {
         "no_project": "Brak aktywnego projektu do zapisania.",
         "empty_name": "Nazwa pliku nie może być pusta.",
         "saved": "Projekt został zapisany lokalnie do JSON.",
+        "export": "Eksportuj JSON...",
+        "exported": "Projekt został wyeksportowany.",
+        "export_error": "Nie udało się wyeksportować projektu.",
     },
 }
 
@@ -104,12 +117,20 @@ class SaveProjectScreen(BaseScreen):
         layout.addWidget(self.recent_files)
 
         self.cancel_button = self.normal_button("")
+        self.export_button = self.normal_button("")
         self.save_button = self.primary_button("")
 
         self.cancel_button.clicked.connect(lambda: self.controller.show_screen("editor"))
+        self.export_button.clicked.connect(self.export_project)
         self.save_button.clicked.connect(self.save_project)
 
-        layout.addLayout(self.horizontal_buttons(self.cancel_button, self.save_button))
+        layout.addLayout(
+            self.horizontal_buttons(
+                self.cancel_button,
+                self.export_button,
+                self.save_button,
+            )
+        )
 
         self.center_card_layout(card)
 
@@ -160,6 +181,56 @@ class SaveProjectScreen(BaseScreen):
 
         self.controller.show_screen("editor")
 
+    def export_project(self) -> None:
+        project = self.controller.current_project
+
+        if project is None:
+            QMessageBox.warning(
+                self,
+                self._t("message_title"),
+                self._t("no_project"),
+            )
+            return
+
+        name = self._normalized_project_name()
+
+        if not name:
+            QMessageBox.warning(
+                self,
+                self._t("message_title"),
+                self._t("empty_name"),
+            )
+            return
+
+        project.name = name
+        self.controller.set_current_project(project)
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            self._t("export"),
+            f"{project.name}.json",
+            "JSON files (*.json)",
+        )
+
+        if not file_path:
+            return
+
+        try:
+            self.controller.storage.export_project_to_file(project, file_path)
+        except Exception as error:
+            QMessageBox.critical(
+                self,
+                self._t("message_title"),
+                f"{self._t('export_error')}\n\n{error}",
+            )
+            return
+
+        QMessageBox.information(
+            self,
+            self._t("message_title"),
+            self._t("exported"),
+        )
+
     def _load_current_project_name(self) -> None:
         project = self.controller.current_project or Project()
 
@@ -194,6 +265,7 @@ class SaveProjectScreen(BaseScreen):
         self.location_text.setText(self._t("location"))
         self.recent_files_label.setText(self._t("recent_files"))
         self.cancel_button.setText(self._t("cancel"))
+        self.export_button.setText(self._t("export"))
         self.save_button.setText(self._t("save"))
 
     def _normalized_project_name(self) -> str:
