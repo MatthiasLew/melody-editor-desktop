@@ -6,9 +6,10 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QScrollArea, QVBoxLayout, QWidget
 
+from app.core.audio import AudioEngine
 from app.core.models import Project
 from app.ui.screens.base import BaseScreen
-from app.ui.widgets import MelodyGridWidget
+from app.ui.widgets import MelodyGridWidget, PITCH_NAMES
 
 if TYPE_CHECKING:
     from app.main import MainWindow
@@ -42,6 +43,8 @@ class EditorScreen(BaseScreen):
 
         self.is_playing = False
         self.current_step = 0
+
+        self.audio = AudioEngine(self)
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.advance_playback)
@@ -171,6 +174,7 @@ class EditorScreen(BaseScreen):
         self.current_step = 0
 
         self.grid.set_playback_step(self.current_step)
+        self._play_current_step_notes()
 
         self.play_button.setObjectName("dangerButton")
         self.play_button.setText(self._t("stop"))
@@ -178,7 +182,6 @@ class EditorScreen(BaseScreen):
 
         interval_ms = max(80, int(60000 / max(1, project.tempo)))
         self.timer.start(interval_ms)
-
     def stop_playback(self) -> None:
         self.is_playing = False
         self.timer.stop()
@@ -192,10 +195,33 @@ class EditorScreen(BaseScreen):
 
     def advance_playback(self) -> None:
         self.current_step += 1
-        self.grid.set_playback_step(self.current_step)
 
         if self.current_step >= self.grid.columns:
             self.stop_playback()
+            return
+
+        self.grid.set_playback_step(self.current_step)
+        self._play_current_step_notes()
+
+    def _play_current_step_notes(self) -> None:
+        project = self._get_or_create_project()
+
+        note_names: list[str] = []
+
+        for note in project.notes:
+            if note.time != self.current_step:
+                continue
+
+            if 0 <= note.pitch < len(PITCH_NAMES):
+                note_names.append(PITCH_NAMES[note.pitch])
+
+        if not note_names:
+            return
+
+        self.audio.play_notes(
+            note_names=note_names,
+            volume=self.controller.settings.volume,
+        )
 
     def go_to_save(self) -> None:
         self.stop_playback()
