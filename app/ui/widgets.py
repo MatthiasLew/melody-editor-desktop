@@ -7,11 +7,28 @@ from PySide6.QtWidgets import QWidget
 from app.core.models import Note
 
 
-PITCH_NAMES = [
-    "C6", "B5", "A5", "G5", "F5",
-    "E5", "D5", "C5", "B4", "A4",
-    "G4", "F4", "E4", "D4", "C4",
-]
+PITCH_RANGES = {
+    "c3-c5": [
+        "C5", "B4", "A4", "G4", "F4",
+        "E4", "D4", "C4", "B3", "A3",
+        "G3", "F3", "E3", "D3", "C3",
+    ],
+    "c4-c6": [
+        "C6", "B5", "A5", "G5", "F5",
+        "E5", "D5", "C5", "B4", "A4",
+        "G4", "F4", "E4", "D4", "C4",
+    ],
+    "c5-c7": [
+        "C7", "B6", "A6", "G6", "F6",
+        "E6", "D6", "C6", "B5", "A5",
+        "G5", "F5", "E5", "D5", "C5",
+    ],
+}
+
+DEFAULT_PITCH_RANGE = "c4-c6"
+
+# Kept for compatibility with older imports.
+PITCH_NAMES = PITCH_RANGES[DEFAULT_PITCH_RANGE]
 
 
 class MelodyGridWidget(QWidget):
@@ -21,6 +38,7 @@ class MelodyGridWidget(QWidget):
         super().__init__()
 
         self.notes: list[Note] = []
+        self.pitch_names = PITCH_RANGES[DEFAULT_PITCH_RANGE]
         self.bars = 8
         self.cell_w = 32
         self.cell_h = 30
@@ -39,13 +57,23 @@ class MelodyGridWidget(QWidget):
 
     @property
     def rows(self) -> int:
-        return len(PITCH_NAMES)
+        return len(self.pitch_names)
 
     def set_dark_theme(self, enabled: bool) -> None:
         self.dark_theme = enabled
         self.update()
 
-    def set_project_data(self, notes: list[Note], bars: int) -> None:
+    def set_project_data(
+            self,
+            notes: list[Note],
+            bars: int,
+            pitch_range: str = DEFAULT_PITCH_RANGE,
+    ) -> None:
+        self.pitch_names = PITCH_RANGES.get(
+            pitch_range,
+            PITCH_RANGES[DEFAULT_PITCH_RANGE],
+        )
+
         self.bars = max(1, bars)
         self.notes = self._sanitize_notes(notes)
         self.playback_step = -1
@@ -66,6 +94,11 @@ class MelodyGridWidget(QWidget):
         self.playback_step = -1
         self.update()
 
+    def note_name_for_pitch(self, pitch: int) -> str | None:
+        if 0 <= pitch < len(self.pitch_names):
+            return self.pitch_names[pitch]
+
+        return None
     def paintEvent(self, event: QPaintEvent) -> None:  # noqa: N802 - Qt naming convention
         del event
 
@@ -84,7 +117,7 @@ class MelodyGridWidget(QWidget):
         painter.setPen(QColor(colors["text_secondary"]))
         painter.setFont(QFont("Segoe UI", 9))
 
-        for row, pitch_name in enumerate(PITCH_NAMES):
+        for row, pitch_name in enumerate(self.pitch_names):
             y = self.top_margin + row * self.cell_h + self.cell_h // 2 + 5
             painter.drawText(8, y, pitch_name)
 

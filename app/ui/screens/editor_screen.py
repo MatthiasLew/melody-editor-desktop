@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QScrollArea, QVBoxLay
 from app.core.audio import AudioEngine
 from app.core.models import Project
 from app.ui.screens.base import BaseScreen
-from app.ui.widgets import MelodyGridWidget, PITCH_NAMES
+from app.ui.widgets import MelodyGridWidget
 
 if TYPE_CHECKING:
     from app.main import MainWindow
@@ -136,7 +136,11 @@ class EditorScreen(BaseScreen):
         project = self._get_or_create_project()
 
         self.grid.set_dark_theme(self._is_black_theme())
-        self.grid.set_project_data(project.notes, project.bars)
+        self.grid.set_project_data(
+            notes=project.notes,
+            bars=project.bars,
+            pitch_range=project.pitch_range,
+        )
 
         self.project_label.setText(project.name)
         self._apply_texts()
@@ -212,8 +216,10 @@ class EditorScreen(BaseScreen):
             if note.time != self.current_step:
                 continue
 
-            if 0 <= note.pitch < len(PITCH_NAMES):
-                note_names.append(PITCH_NAMES[note.pitch])
+            note_name = self.grid.note_name_for_pitch(note.pitch)
+
+            if note_name is not None:
+                note_names.append(note_name)
 
         if not note_names:
             return
@@ -222,7 +228,6 @@ class EditorScreen(BaseScreen):
             note_names=note_names,
             volume=self.controller.settings.volume,
         )
-
     def go_to_save(self) -> None:
         self.stop_playback()
         self.sync_notes_to_project()
