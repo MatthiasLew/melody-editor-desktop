@@ -11,14 +11,14 @@ from app.ui.screens.base import BaseScreen
 if TYPE_CHECKING:
     from app.main import MainWindow
 
-
 TEXTS = {
     "en": {
         "back": "←  Back to Start",
         "title": "New Project",
         "subtitle": "Configure your melody project settings",
         "project_name": "Project Name",
-        "tempo_bars": "Tempo (BPM) / Number of Bars",
+        "tempo": "Tempo (40–240 BPM)",
+        "bars": "Number of Bars (1–64)",
         "pitch_range": "Pitch Range",
         "cancel": "Cancel",
         "create": "Create Project",
@@ -33,7 +33,8 @@ TEXTS = {
         "title": "Nowy projekt",
         "subtitle": "Skonfiguruj ustawienia projektu melodii",
         "project_name": "Nazwa projektu",
-        "tempo_bars": "Tempo (BPM) / Liczba taktów",
+        "tempo": "Tempo (40–240 BPM)",
+        "bars": "Liczba taktów (1–64)",
         "pitch_range": "Zakres dźwięków",
         "cancel": "Anuluj",
         "create": "Utwórz projekt",
@@ -77,15 +78,25 @@ class NewProjectScreen(BaseScreen):
         self.tempo_input = QSpinBox()
         self.tempo_input.setRange(40, 240)
         self.tempo_input.setValue(120)
+        self.tempo_input.setSuffix(" BPM")
+        self.tempo_input.setAccelerated(True)
+        self.tempo_input.setMinimumWidth(160)
+        self.tempo_input.setAlignment(Qt.AlignCenter)
+        self.tempo_input.setToolTip("Zakres tempa: 40–240 BPM")
 
         self.bars_input = QSpinBox()
         self.bars_input.setRange(1, 64)
         self.bars_input.setValue(8)
+        self.bars_input.setAccelerated(True)
+        self.bars_input.setMinimumWidth(160)
+        self.bars_input.setAlignment(Qt.AlignCenter)
+        self.bars_input.setToolTip("Zakres liczby taktów: 1–64")
 
         self.pitch_range_input = QComboBox()
 
         self.project_name_label = self.make_field_label("")
-        self.tempo_bars_label = self.make_field_label("")
+        self.tempo_label = self.make_field_label("")
+        self.bars_label = self.make_field_label("")
         self.pitch_range_label = self.make_field_label("")
 
         form = QFormLayout()
@@ -95,13 +106,8 @@ class NewProjectScreen(BaseScreen):
         form.setVerticalSpacing(14)
 
         form.addRow(self.project_name_label, self.project_name_input)
-
-        tempo_bars_row = QHBoxLayout()
-        tempo_bars_row.setSpacing(20)
-        tempo_bars_row.addWidget(self.tempo_input)
-        tempo_bars_row.addWidget(self.bars_input)
-
-        form.addRow(self.tempo_bars_label, tempo_bars_row)
+        form.addRow(self.tempo_label, self.tempo_input)
+        form.addRow(self.bars_label, self.bars_input)
         form.addRow(self.pitch_range_label, self.pitch_range_input)
 
         layout.addLayout(form)
@@ -168,7 +174,8 @@ class NewProjectScreen(BaseScreen):
         self.title_label.setText(self._t("title"))
         self.subtitle_label.setText(self._t("subtitle"))
         self.project_name_label.setText(self._t("project_name"))
-        self.tempo_bars_label.setText(self._t("tempo_bars"))
+        self.tempo_label.setText(self._t("tempo"))
+        self.bars_label.setText(self._t("bars"))
         self.pitch_range_label.setText(self._t("pitch_range"))
         self.cancel_button.setText(self._t("cancel"))
         self.create_button.setText(self._t("create"))

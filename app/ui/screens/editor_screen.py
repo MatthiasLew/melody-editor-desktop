@@ -4,7 +4,16 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QScrollArea,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
+)
 
 from app.core.audio import AudioEngine
 from app.core.models import Project
@@ -14,7 +23,6 @@ from app.ui.widgets import MelodyGridWidget
 if TYPE_CHECKING:
     from app.main import MainWindow
 
-
 TEXTS = {
     "en": {
         "home": "⌂",
@@ -23,6 +31,10 @@ TEXTS = {
         "save": "▣  Save",
         "hint": "Click grid to add notes. Select note and use arrows/Delete. Right-click removes note.",
         "status": "Tempo: {tempo} BPM     Notes: {notes}     {bars} Bars",
+        "start_step": "Start step",
+        "loop": "Loop",
+        "start_step_tooltip": "Choose the timeline step where playback should start.",
+        "loop_tooltip": "Repeats playback after reaching the end of the melody.",
     },
     "pl": {
         "home": "⌂",
@@ -31,6 +43,10 @@ TEXTS = {
         "save": "▣  Zapisz",
         "hint": "Kliknij siatkę, aby dodać nutę. Zaznacz nutę i użyj strzałek/Delete. Prawy klik usuwa nutę.",
         "status": "Tempo: {tempo} BPM     Nuty: {notes}     Takty: {bars}",
+        "start_step": "Start",
+        "loop": "Pętla",
+        "start_step_tooltip": "Wybierz krok osi czasu, od którego ma rozpocząć się odtwarzanie.",
+        "loop_tooltip": "Powtarza odtwarzanie po dojściu do końca melodii.",
     },
 }
 
@@ -43,6 +59,8 @@ class EditorScreen(BaseScreen):
 
         self.is_playing = False
         self.current_step = 0
+        self.playback_start_step = 0
+        self.loop_enabled = False
 
         self.audio = AudioEngine(self)
 
@@ -76,6 +94,18 @@ class EditorScreen(BaseScreen):
         toolbar_layout.addWidget(self.project_label)
         toolbar_layout.addStretch()
 
+        self.start_step_label = QLabel("")
+        self.start_step_label.setObjectName("fieldLabel")
+
+        self.start_step_input = QSpinBox()
+        self.start_step_input.setRange(0, 0)
+        self.start_step_input.setMinimumWidth(90)
+        self.start_step_input.setAlignment(Qt.AlignCenter)
+        self.start_step_input.valueChanged.connect(self.set_playback_start_step)
+
+        self.loop_checkbox = QCheckBox("")
+        self.loop_checkbox.toggled.connect(self.set_loop_enabled)
+
         self.play_button = self.normal_button("▶  Play")
         self.play_button.setObjectName("playButton")
         self.play_button.clicked.connect(self.toggle_playback)
@@ -83,6 +113,9 @@ class EditorScreen(BaseScreen):
         self.save_button = self.normal_button("▣  Save")
         self.save_button.clicked.connect(self.go_to_save)
 
+        toolbar_layout.addWidget(self.start_step_label)
+        toolbar_layout.addWidget(self.start_step_input)
+        toolbar_layout.addWidget(self.loop_checkbox)
         toolbar_layout.addWidget(self.play_button)
         toolbar_layout.addWidget(self.save_button)
 
@@ -136,11 +169,21 @@ class EditorScreen(BaseScreen):
         project = self._get_or_create_project()
 
         self.grid.set_dark_theme(self._is_black_theme())
+        self.grid.set_keyboard_shortcuts_enabled(
+            self.controller.settings.keyboard_shortcuts
+        )
         self.grid.set_project_data(
             notes=project.notes,
             bars=project.bars,
             pitch_range=project.pitch_range,
         )
+        max_step = max(0, self.grid.columns - 1)
+        self.playback_start_step = min(self.playback_start_step, max_step)
+
+        self.start_step_input.blockSignals(True)
+        self.start_step_input.setRange(0, max_step)
+        self.start_step_input.setValue(self.playback_start_step)
+        self.start_step_input.blockSignals(False)
 
         self.project_label.setText(project.name)
         self._apply_texts()
@@ -164,6 +207,25 @@ class EditorScreen(BaseScreen):
             )
         )
 
+        def set_playback_start_step(self, value: int) -> None:
+            max_step = max(0, self.grid.columns - 1)
+            self.playback_start_step = min(max(0, int(value)), max_step)
+
+            if not self.is_playing:
+                self.grid.set_playback_step(self.playback_start_step)
+
+        def set_loop_enabled(self, enabled: bool) -> None:
+            self.loop_enabled = bool(enabled)
+        def set_playback_start_step(self, value: int) -> None:
+            max_step = max(0, self.grid.columns - 1)
+            self.playback_start_step = min(max(0, value), max_step)
+
+            if not self.is_playing:
+                self.grid.set_playback_step(self.playback_start_step)
+
+        def set_loop_enabled(self, enabled: bool) -> None:
+            self.loop_checkbox.setChecked(enabled)
+
     def toggle_playback(self) -> None:
         if self.is_playing:
             self.stop_playback()
@@ -175,8 +237,10 @@ class EditorScreen(BaseScreen):
         project = self._get_or_create_project()
 
         self.is_playing = True
-        self.current_step = 0
-
+        self.current_step = min(
+            max(0, self.playback_start_step),
+            max(0, self.grid.columns - 1),
+        )
         self.grid.set_playback_step(self.current_step)
         self._play_current_step_notes()
 
@@ -186,12 +250,13 @@ class EditorScreen(BaseScreen):
 
         interval_ms = max(80, int(60000 / max(1, project.tempo)))
         self.timer.start(interval_ms)
+
     def stop_playback(self) -> None:
         self.is_playing = False
         self.timer.stop()
         self.current_step = 0
 
-        self.grid.clear_playback()
+        self.grid.set_playback_step(self.playback_start_step)
 
         self.play_button.setObjectName("playButton")
         self.play_button.setText(self._t("play"))
@@ -201,8 +266,11 @@ class EditorScreen(BaseScreen):
         self.current_step += 1
 
         if self.current_step >= self.grid.columns:
-            self.stop_playback()
-            return
+            if self.loop_enabled:
+                self.current_step = self.playback_start_step
+            else:
+                self.stop_playback()
+                return
 
         self.grid.set_playback_step(self.current_step)
         self._play_current_step_notes()
@@ -228,6 +296,7 @@ class EditorScreen(BaseScreen):
             note_names=note_names,
             volume=self.controller.settings.volume,
         )
+
     def go_to_save(self) -> None:
         self.stop_playback()
         self.sync_notes_to_project()
@@ -245,6 +314,10 @@ class EditorScreen(BaseScreen):
         return self.controller.current_project
 
     def _apply_texts(self) -> None:
+        self.start_step_label.setText(self._t("start_step"))
+        self.loop_checkbox.setText(self._t("loop"))
+        self.start_step_input.setToolTip(self._t("start_step_tooltip"))
+        self.loop_checkbox.setToolTip(self._t("loop_tooltip"))
         self.home_button.setText(self._t("home"))
         self.save_button.setText(self._t("save"))
         self.hint_label.setText(self._t("hint"))

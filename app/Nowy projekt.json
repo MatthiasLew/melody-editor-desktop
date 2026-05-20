@@ -1,0 +1,47 @@
+{
+  "name": "Nowy projekt",
+  "tempo": 97,
+  "bars": 8,
+  "pitch_range": "c4-c6",
+  "notes": [
+    {
+      "id": "79586a50-da7e-46a2-ab30-82391597800b",
+      "pitch": 1,
+      "time": 1
+    },
+    {
+      "id": "e846b6de-e036-4c72-a55d-628e94d1557d",
+      "pitch": 0,
+      "time": 0
+    },
+    {
+      "id": "3e205b15-4c86-41ca-8cf1-a6f14c04a815",
+      "pitch": 2,
+      "time": 1
+    },
+    {
+      "id": "a20192da-0da7-4f2e-bab1-0d2a25d64e2a",
+      "pitch": 3,
+      "time": 3
+    },
+    {
+      "id": "6788dc93-bc0c-425e-b49f-f0d30de496d6",
+      "pitch": 2,
+      "time": 2
+    },
+    {
+      "id": "574f6fdb-7d97-412b-9466-5c94d7023104",
+      "pitch": 4,
+      "time": 3
+    },
+    {
+      "id": "99106fa4-4e05-4400-8b9e-8cd26a4f9eb5",
+      "pitch": 4,
+      "time": 4
+    }
+  ],
+  "created_at": "2026-05-13T14:17:08",
+  "saved_at": "2026-05-13T14:17:50",
+  "exported_at": "2026-05-13T14:18:21",
+  "file_type": "melody_editor_project"
+}

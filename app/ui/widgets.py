@@ -6,7 +6,6 @@ from PySide6.QtWidgets import QWidget
 
 from app.core.models import Note
 
-
 PITCH_RANGES = {
     "c3-c5": [
         "C5", "B4", "A4", "G4", "F4",
@@ -47,6 +46,11 @@ class MelodyGridWidget(QWidget):
         self.selected_note_id: str | None = None
         self.playback_step = -1
         self.dark_theme = False
+        self.keyboard_shortcuts_enabled = True
+        self.is_drawing = False
+        self.is_erasing = False
+        self.last_touched_cell: tuple[int, int] | None = None
+        self.keyboard_shortcuts_enabled = True
 
         self.setFocusPolicy(Qt.StrongFocus)
         self.setMinimumSize(1120, 560)
@@ -62,6 +66,13 @@ class MelodyGridWidget(QWidget):
     def set_dark_theme(self, enabled: bool) -> None:
         self.dark_theme = enabled
         self.update()
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802
+        if not self.keyboard_shortcuts_enabled:
+            super().keyPressEvent(event)
+            return
+
+        selected = self._selected_note()
 
     def set_project_data(
             self,
@@ -99,6 +110,7 @@ class MelodyGridWidget(QWidget):
             return self.pitch_names[pitch]
 
         return None
+
     def paintEvent(self, event: QPaintEvent) -> None:  # noqa: N802 - Qt naming convention
         del event
 
@@ -203,16 +215,19 @@ class MelodyGridWidget(QWidget):
         if cell is None:
             return
 
-        pitch, time = cell
-        note = self._find_note(pitch, time)
-
         if event.button() == Qt.RightButton:
-            self._delete_note(note)
+            self.is_erasing = True
+            self.is_drawing = False
+            self.last_touched_cell = None
+            self._apply_drag_cell(cell, erase=True)
             event.accept()
             return
 
         if event.button() == Qt.LeftButton:
-            self._select_or_create_note(note, pitch, time)
+            self.is_drawing = True
+            self.is_erasing = False
+            self.last_touched_cell = None
+            self._apply_drag_cell(cell, erase=False)
             event.accept()
             return
 
@@ -247,6 +262,30 @@ class MelodyGridWidget(QWidget):
 
         super().keyPressEvent(event)
 
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        cell = self._cell_from_point(event.position().toPoint())
+        if cell is None:
+            super().mouseMoveEvent(event)
+            return
+
+        if self.is_drawing and event.buttons() & Qt.LeftButton:
+            self._apply_drag_cell(cell, erase=False)
+            event.accept()
+            return
+
+        if self.is_erasing and event.buttons() & Qt.RightButton:
+            self._apply_drag_cell(cell, erase=True)
+            event.accept()
+            return
+
+        super().mouseMoveEvent(event)
+
+        def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+            self.is_drawing = False
+            self.is_erasing = False
+            self.last_touched_cell = None
+
+            super().mouseReleaseEvent(event)
     def _select_or_create_note(self, note: Note | None, pitch: int, time: int) -> None:
         if note is not None:
             self.selected_note_id = note.id
@@ -259,6 +298,20 @@ class MelodyGridWidget(QWidget):
 
         self.notes_changed.emit()
         self.update()
+
+    def _apply_drag_cell(self, cell: tuple[int, int], erase: bool) -> None:
+        if self.last_touched_cell == cell:
+            return
+
+        pitch, time = cell
+        note = self._find_note(pitch, time)
+
+        if erase:
+            self._delete_note(note)
+        else:
+            self._select_or_create_note(note, pitch, time)
+
+        self.last_touched_cell = cell
 
     def _delete_note(self, note: Note | None) -> None:
         if note is None:

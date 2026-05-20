@@ -23,7 +23,6 @@ from app.ui.screens.base import BaseScreen
 if TYPE_CHECKING:
     from app.main import MainWindow
 
-
 TEXTS = {
     "en": {
         "back": "←  Back to Start",
@@ -44,6 +43,13 @@ TEXTS = {
         "keyboard_shortcuts": "Keyboard Shortcuts",
         "cancel": "Cancel",
         "save": "Save Settings",
+        "volume_tooltip": "Controls melody playback volume.",
+        "theme_tooltip": "Changes the application appearance between light and black theme.",
+        "language_tooltip": "Changes the interface language.",
+        "default_tempo_tooltip": "Default tempo for new projects. Allowed range: 40–240 BPM.",
+        "high_contrast_tooltip": "Increases contrast to improve readability.",
+        "large_text_tooltip": "Makes interface text larger.",
+        "keyboard_shortcuts_tooltip": "Enables keyboard shortcuts in the editor, for example arrows to move notes and Delete to remove them.",
     },
     "pl": {
         "back": "←  Powrót do menu",
@@ -64,6 +70,13 @@ TEXTS = {
         "keyboard_shortcuts": "Skróty klawiaturowe",
         "cancel": "Anuluj",
         "save": "Zapisz ustawienia",
+        "volume_tooltip": "Controls melody playback volume.",
+        "theme_tooltip": "Changes the application appearance between light and black theme.",
+        "language_tooltip": "Changes the interface language.",
+        "default_tempo_tooltip": "Default tempo for new projects. Allowed range: 40–240 BPM.",
+        "high_contrast_tooltip": "Increases contrast to improve readability.",
+        "large_text_tooltip": "Makes interface text larger.",
+        "keyboard_shortcuts_tooltip": "Enables keyboard shortcuts in the editor, for example arrows to move notes and Delete to remove them.",
     },
 }
 
@@ -213,6 +226,7 @@ class SettingsScreen(BaseScreen):
 
         self._apply_texts()
         self._populate_theme_input(settings.theme)
+        self._apply_tooltips()
 
         self._is_refreshing = False
 
@@ -231,6 +245,16 @@ class SettingsScreen(BaseScreen):
         self.controller.storage.save_settings(settings)
         self.controller.apply_current_styles()
         self.controller.show_screen("start")
+
+    def _apply_tooltips(self) -> None:
+        self.volume_slider.setToolTip(self._t("volume_tooltip"))
+        self.theme_input.setToolTip(self._t("theme_tooltip"))
+        self.language_input.setToolTip(self._t("language_tooltip"))
+        self.default_tempo_input.setToolTip(self._t("default_tempo_tooltip"))
+
+        self.high_contrast.setToolTip(self._t("high_contrast_tooltip"))
+        self.large_text.setToolTip(self._t("large_text_tooltip"))
+        self.keyboard_shortcuts.setToolTip(self._t("keyboard_shortcuts_tooltip"))
 
     def _apply_texts(self) -> None:
         current_theme = str(self.theme_input.currentData() or self.controller.settings.theme)
@@ -277,6 +301,7 @@ class SettingsScreen(BaseScreen):
             return
 
         self._apply_texts()
+        self._apply_tooltips()
 
     def _update_volume_label(self, value: int) -> None:
         self.volume_value.setText(f"{value}%")

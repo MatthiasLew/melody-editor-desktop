@@ -23,7 +23,7 @@ TEXTS = {
     },
     "pl": {
         "title": "Melody Editor",
-        "subtitle": "Proste tworzenie melodii dla studentów",
+        "subtitle": "Proste tworzenie melodii",
         "new_project": "♫  Nowy projekt",
         "load_project": "▣  Wczytaj projekt",
         "settings": "⚙  Ustawienia",

@@ -397,8 +397,111 @@ QCheckBox:disabled {
 }
 """
 
+HIGH_CONTRAST_BLACK_QSS = """
+QMainWindow, QWidget#appRoot {
+    background: #000000;
+    color: #ffffff;
+}
 
-HIGH_CONTRAST_QSS = """
+QFrame#card,
+QFrame#toolbar,
+QFrame#statusBar {
+    background: #000000;
+    border: 2px solid #ffffff;
+}
+
+QLabel,
+QLabel#title,
+QLabel#subtitle,
+QLabel#sectionTitle,
+QLabel#fieldLabel,
+QLabel#detailsBody {
+    color: #ffffff;
+}
+
+QLabel#sectionTitle {
+    border-bottom-color: #ffffff;
+}
+
+QPushButton {
+    border: 2px solid #ffffff;
+    color: #ffffff;
+    background: #000000;
+    font-weight: 700;
+}
+
+QPushButton:hover {
+    background: #1f2937;
+}
+
+QPushButton#primaryButton,
+QPushButton#playButton {
+    background: #0057ff;
+    color: #ffffff;
+    border-color: #ffffff;
+}
+
+QPushButton#dangerButton {
+    color: #ffffff;
+    background: #7f1d1d;
+    border-color: #ffffff;
+}
+
+QLineEdit,
+QSpinBox,
+QComboBox,
+QListWidget,
+QTextEdit {
+    background: #000000;
+    color: #ffffff;
+    border: 2px solid #ffffff;
+    placeholder-text-color: #dddddd;
+    selection-background-color: #0057ff;
+    selection-color: #ffffff;
+}
+
+QComboBox::drop-down {
+    background: #111827;
+    border-left-color: #ffffff;
+}
+
+QComboBox QAbstractItemView {
+    background: #000000;
+    color: #ffffff;
+    border: 2px solid #ffffff;
+    selection-background-color: #0057ff;
+    selection-color: #ffffff;
+}
+
+QListWidget::item {
+    color: #ffffff;
+    border-bottom-color: #ffffff;
+}
+
+QListWidget::item:selected {
+    background: #0057ff;
+    color: #ffffff;
+    border-left: 4px solid #ffffff;
+}
+
+QCheckBox {
+    color: #ffffff;
+}
+
+QSlider::groove:horizontal {
+    background: #ffffff;
+}
+
+QSlider::sub-page:horizontal {
+    background: #0057ff;
+}
+
+QSlider::handle:horizontal {
+    background: #ffffff;
+    border: 2px solid #000000;
+}
+"""
+HIGH_CONTRAST_LIGHT_QSS  = """
 QMainWindow, QWidget#appRoot {
     background: #ffffff;
     color: #000000;
@@ -508,14 +611,18 @@ QLabel#sectionTitle {
 
 def build_stylesheet(settings: AppSettings) -> str:
     theme = settings.theme.lower().strip()
+    is_black_theme = theme in {"black", "dark"}
 
     sheet = BASE_QSS
 
-    if theme in {"black", "dark"}:
+    if is_black_theme:
         sheet += BLACK_QSS
 
     if settings.high_contrast:
-        sheet += HIGH_CONTRAST_QSS
+        if is_black_theme:
+            sheet += HIGH_CONTRAST_BLACK_QSS
+        else:
+            sheet += HIGH_CONTRAST_LIGHT_QSS
 
     if settings.large_text:
         sheet += LARGE_TEXT_QSS
