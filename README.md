@@ -159,13 +159,3 @@ python -m compileall app
 python run.py
 ```
 
-Suggested future improvements:
-
-- Add automated unit tests for models, storage, MIDI import/export and audio export.
-- Add screenshots to this README.
-- Replace native spin boxes with fully custom plus/minus controls if visibility problems occur on some Windows themes.
-- Add a packaged Windows executable using PyInstaller.
-
-## License
-
-No license has been selected yet. Before publishing the project for reuse, add a proper license file, for example MIT, Apache-2.0 or another license chosen by the author.

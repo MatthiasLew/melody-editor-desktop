@@ -159,13 +159,3 @@ python -m compileall app
 python run.py
 ```
 
-Propozycje dalszych usprawnień:
-
-- Dodać testy jednostkowe dla modeli, zapisu, importu/eksportu MIDI oraz eksportu audio.
-- Dodać zrzuty ekranu do README.
-- Zastąpić natywne pola liczbowe w pełni własnymi przyciskami plus/minus, jeżeli na niektórych motywach Windowsa problem widoczności będzie się powtarzał.
-- Dodać paczkę wykonywalną dla Windowsa przez PyInstaller.
-
-## Licencja
-
-Licencja nie została jeszcze wybrana. Przed publikacją projektu do ponownego wykorzystania warto dodać właściwy plik licencji, np. MIT, Apache-2.0 albo inną licencję wybraną przez autora.
