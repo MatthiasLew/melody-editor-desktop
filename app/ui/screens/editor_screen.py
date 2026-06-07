@@ -6,11 +6,11 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QFrame,
     QHBoxLayout,
     QLabel,
     QScrollArea,
-    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -28,25 +28,27 @@ TEXTS = {
         "home": "⌂",
         "play": "▶  Play",
         "stop": "■  Stop",
-        "save": "▣  Save",
-        "hint": "Click grid to add notes. Select note and use arrows/Delete. Right-click removes note.",
-        "status": "Tempo: {tempo} BPM     Notes: {notes}     {bars} Bars",
-        "start_step": "Start step",
+        "save": "💾  Save",
+        "hint": "Click grid to add notes. Select a note and use arrows/Delete. Right-click removes a note.",
+        "status": "Tempo: {tempo} BPM     Notes: {notes}     {bars} Bars     End: {end_position}",
+        "start_position": "Start position",
+        "position_format": "Bar {bar}, step {step}/4",
         "loop": "Loop",
-        "start_step_tooltip": "Choose the timeline step where playback should start.",
-        "loop_tooltip": "Repeats playback after reaching the end of the melody.",
+        "start_position_tooltip": "Choose the musical position where playback should start.",
+        "loop_tooltip": "Repeats immediately after the last note in the melody.",
     },
     "pl": {
         "home": "⌂",
         "play": "▶  Odtwórz",
         "stop": "■  Stop",
-        "save": "▣  Zapisz",
+        "save": "💾  Zapisz",
         "hint": "Kliknij siatkę, aby dodać nutę. Zaznacz nutę i użyj strzałek/Delete. Prawy klik usuwa nutę.",
-        "status": "Tempo: {tempo} BPM     Nuty: {notes}     Takty: {bars}",
-        "start_step": "Start",
+        "status": "Tempo: {tempo} BPM     Nuty: {notes}     Takty: {bars}     Koniec: {end_position}",
+        "start_position": "Pozycja startu",
+        "position_format": "Takt {bar}, krok {step}/4",
         "loop": "Pętla",
-        "start_step_tooltip": "Wybierz krok osi czasu, od którego ma rozpocząć się odtwarzanie.",
-        "loop_tooltip": "Powtarza odtwarzanie po dojściu do końca melodii.",
+        "start_position_tooltip": "Wybierz muzyczną pozycję, od której ma rozpocząć się odtwarzanie.",
+        "loop_tooltip": "Powtarza odtwarzanie od razu po ostatniej nucie melodii.",
     },
 }
 
@@ -79,7 +81,7 @@ class EditorScreen(BaseScreen):
         toolbar_layout.setSpacing(12)
 
         self.home_button = self.normal_button("⌂")
-        self.home_button.setFixedWidth(48)
+        self.home_button.setFixedWidth(52)
         self.home_button.clicked.connect(self.go_to_start)
 
         self.project_label = QLabel("Untitled Project")
@@ -94,14 +96,12 @@ class EditorScreen(BaseScreen):
         toolbar_layout.addWidget(self.project_label)
         toolbar_layout.addStretch()
 
-        self.start_step_label = QLabel("")
-        self.start_step_label.setObjectName("fieldLabel")
+        self.start_position_label = QLabel("")
+        self.start_position_label.setObjectName("fieldLabel")
 
-        self.start_step_input = QSpinBox()
-        self.start_step_input.setRange(0, 0)
-        self.start_step_input.setMinimumWidth(90)
-        self.start_step_input.setAlignment(Qt.AlignCenter)
-        self.start_step_input.valueChanged.connect(self.set_playback_start_step)
+        self.start_position_input = QComboBox()
+        self.start_position_input.setMinimumWidth(190)
+        self.start_position_input.currentIndexChanged.connect(self.set_playback_start_position)
 
         self.loop_checkbox = QCheckBox("")
         self.loop_checkbox.toggled.connect(self.set_loop_enabled)
@@ -110,11 +110,11 @@ class EditorScreen(BaseScreen):
         self.play_button.setObjectName("playButton")
         self.play_button.clicked.connect(self.toggle_playback)
 
-        self.save_button = self.normal_button("▣  Save")
+        self.save_button = self.normal_button("💾  Save")
         self.save_button.clicked.connect(self.go_to_save)
 
-        toolbar_layout.addWidget(self.start_step_label)
-        toolbar_layout.addWidget(self.start_step_input)
+        toolbar_layout.addWidget(self.start_position_label)
+        toolbar_layout.addWidget(self.start_position_input)
         toolbar_layout.addWidget(self.loop_checkbox)
         toolbar_layout.addWidget(self.play_button)
         toolbar_layout.addWidget(self.save_button)
@@ -177,14 +177,11 @@ class EditorScreen(BaseScreen):
             bars=project.bars,
             pitch_range=project.pitch_range,
         )
+
         max_step = max(0, self.grid.columns - 1)
         self.playback_start_step = min(self.playback_start_step, max_step)
 
-        self.start_step_input.blockSignals(True)
-        self.start_step_input.setRange(0, max_step)
-        self.start_step_input.setValue(self.playback_start_step)
-        self.start_step_input.blockSignals(False)
-
+        self._populate_start_positions()
         self.project_label.setText(project.name)
         self._apply_texts()
         self.update_status()
@@ -198,33 +195,28 @@ class EditorScreen(BaseScreen):
 
     def update_status(self) -> None:
         project = self._get_or_create_project()
-
         self.info_label.setText(
             self._t("status").format(
                 tempo=project.tempo,
                 notes=len(project.notes),
                 bars=project.bars,
+                end_position=self._format_position(self._last_note_step()),
             )
         )
 
-        def set_playback_start_step(self, value: int) -> None:
-            max_step = max(0, self.grid.columns - 1)
-            self.playback_start_step = min(max(0, int(value)), max_step)
+    def set_playback_start_position(self, _: int | None = None) -> None:
+        value = self.start_position_input.currentData()
+        if value is None:
+            return
 
-            if not self.is_playing:
-                self.grid.set_playback_step(self.playback_start_step)
+        max_step = max(0, self.grid.columns - 1)
+        self.playback_start_step = min(max(0, int(value)), max_step)
 
-        def set_loop_enabled(self, enabled: bool) -> None:
-            self.loop_enabled = bool(enabled)
-        def set_playback_start_step(self, value: int) -> None:
-            max_step = max(0, self.grid.columns - 1)
-            self.playback_start_step = min(max(0, value), max_step)
+        if not self.is_playing:
+            self.grid.set_playback_step(self.playback_start_step)
 
-            if not self.is_playing:
-                self.grid.set_playback_step(self.playback_start_step)
-
-        def set_loop_enabled(self, enabled: bool) -> None:
-            self.loop_checkbox.setChecked(enabled)
+    def set_loop_enabled(self, enabled: bool) -> None:
+        self.loop_enabled = bool(enabled)
 
     def toggle_playback(self) -> None:
         if self.is_playing:
@@ -235,11 +227,12 @@ class EditorScreen(BaseScreen):
 
     def start_playback(self) -> None:
         project = self._get_or_create_project()
+        playback_end_step = self._playback_end_step()
 
         self.is_playing = True
         self.current_step = min(
             max(0, self.playback_start_step),
-            max(0, self.grid.columns - 1),
+            playback_end_step,
         )
         self.grid.set_playback_step(self.current_step)
         self._play_current_step_notes()
@@ -264,10 +257,11 @@ class EditorScreen(BaseScreen):
 
     def advance_playback(self) -> None:
         self.current_step += 1
+        playback_end_step = self._playback_end_step()
 
-        if self.current_step >= self.grid.columns:
+        if self.current_step > playback_end_step:
             if self.loop_enabled:
-                self.current_step = self.playback_start_step
+                self.current_step = min(self.playback_start_step, playback_end_step)
             else:
                 self.stop_playback()
                 return
@@ -313,14 +307,55 @@ class EditorScreen(BaseScreen):
 
         return self.controller.current_project
 
+    def _populate_start_positions(self) -> None:
+        current_value = self.playback_start_step
+        max_step = max(0, self.grid.columns - 1)
+
+        self.start_position_input.blockSignals(True)
+        self.start_position_input.clear()
+
+        for step in range(max_step + 1):
+            self.start_position_input.addItem(self._format_position(step), step)
+
+        index = self.start_position_input.findData(min(current_value, max_step))
+        self.start_position_input.setCurrentIndex(index if index >= 0 else 0)
+        self.start_position_input.blockSignals(False)
+
+    def _last_note_step(self) -> int:
+        project = self._get_or_create_project()
+        if not project.notes:
+            return 0
+
+        return max(note.time for note in project.notes)
+
+    def _playback_end_step(self) -> int:
+        project = self._get_or_create_project()
+        if project.notes:
+            return min(self._last_note_step(), max(0, self.grid.columns - 1))
+
+        return max(0, self.grid.columns - 1)
+
+    def _format_position(self, step: int) -> str:
+        safe_step = max(0, int(step))
+        bar = safe_step // 4 + 1
+        sub_step = safe_step % 4 + 1
+        return self._t("position_format").format(bar=bar, step=sub_step)
+
     def _apply_texts(self) -> None:
-        self.start_step_label.setText(self._t("start_step"))
+        self.start_position_label.setText(self._t("start_position"))
         self.loop_checkbox.setText(self._t("loop"))
-        self.start_step_input.setToolTip(self._t("start_step_tooltip"))
+        self.start_position_input.setToolTip(self._t("start_position_tooltip"))
         self.loop_checkbox.setToolTip(self._t("loop_tooltip"))
         self.home_button.setText(self._t("home"))
         self.save_button.setText(self._t("save"))
         self.hint_label.setText(self._t("hint"))
+
+        # Refresh visible combo labels after a language change.
+        current_value = self.playback_start_step
+        self._populate_start_positions()
+        index = self.start_position_input.findData(current_value)
+        if index >= 0:
+            self.start_position_input.setCurrentIndex(index)
 
         if self.is_playing:
             self.play_button.setText(self._t("stop"))

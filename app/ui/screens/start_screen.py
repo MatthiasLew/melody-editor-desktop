@@ -15,20 +15,20 @@ TEXTS = {
     "en": {
         "title": "Melody Editor",
         "subtitle": "Simple music composition for students",
-        "new_project": "♫  New Project",
-        "load_project": "▣  Load Project",
-        "settings": "⚙  Settings",
-        "help": "?  Help",
-        "exit": "↳  Exit",
+        "new_project": "🎵  New Project",
+        "load_project": "📂  Load Project",
+        "settings": "⚙️  Settings",
+        "help": "❓  Help",
+        "exit": "🚪  Exit",
     },
     "pl": {
         "title": "Melody Editor",
         "subtitle": "Proste tworzenie melodii",
-        "new_project": "♫  Nowy projekt",
-        "load_project": "▣  Wczytaj projekt",
-        "settings": "⚙  Ustawienia",
-        "help": "?  Pomoc",
-        "exit": "↳  Wyjście",
+        "new_project": "🎵  Nowy projekt",
+        "load_project": "📂  Wczytaj projekt",
+        "settings": "⚙️  Ustawienia",
+        "help": "❓  Pomoc",
+        "exit": "🚪  Wyjście",
     },
 }
 
@@ -45,7 +45,7 @@ class StartScreen(BaseScreen):
         card_layout.setContentsMargins(46, 42, 46, 42)
         card_layout.setSpacing(14)
 
-        self.icon_label = QLabel("♫")
+        self.icon_label = QLabel("🎵")
         self.icon_label.setObjectName("menuIcon")
         self.icon_label.setAlignment(Qt.AlignCenter)
 
@@ -75,7 +75,8 @@ class StartScreen(BaseScreen):
         ]
 
         for button in buttons:
-            button.setMinimumHeight(44)
+            button.setProperty("menuButton", True)
+            button.setMinimumHeight(50)
             card_layout.addWidget(button)
 
         card_layout.addSpacing(4)

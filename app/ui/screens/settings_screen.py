@@ -12,13 +12,13 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSizePolicy,
     QSlider,
-    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
 from app.core.models import AppSettings
 from app.ui.screens.base import BaseScreen
+from app.ui.widgets import ReadableSpinBox
 
 if TYPE_CHECKING:
     from app.main import MainWindow
@@ -27,7 +27,7 @@ TEXTS = {
     "en": {
         "back": "←  Back to Start",
         "title": "Settings",
-        "subtitle": "Configure application preferences",
+        "subtitle": "Appearance changes are previewed immediately. Back discards unsaved changes.",
         "audio": "Audio Settings",
         "volume": "Volume",
         "appearance": "Appearance",
@@ -41,20 +41,20 @@ TEXTS = {
         "high_contrast": "High Contrast Mode",
         "large_text": "Large Text",
         "keyboard_shortcuts": "Keyboard Shortcuts",
-        "cancel": "Cancel",
-        "save": "Save Settings",
+        "cancel": "Back",
+        "save": "Save and Back",
         "volume_tooltip": "Controls melody playback volume.",
-        "theme_tooltip": "Changes the application appearance between light and black theme.",
-        "language_tooltip": "Changes the interface language.",
+        "theme_tooltip": "Previews the application theme immediately. Use Save and Back to keep the change.",
+        "language_tooltip": "Previews the interface language immediately. Use Save and Back to keep the change.",
         "default_tempo_tooltip": "Default tempo for new projects. Allowed range: 40–240 BPM.",
-        "high_contrast_tooltip": "Increases contrast to improve readability.",
-        "large_text_tooltip": "Makes interface text larger.",
+        "high_contrast_tooltip": "Previews high contrast immediately. Use Save and Back to keep the change.",
+        "large_text_tooltip": "Previews larger interface text immediately. Use Save and Back to keep the change.",
         "keyboard_shortcuts_tooltip": "Enables keyboard shortcuts in the editor, for example arrows to move notes and Delete to remove them.",
     },
     "pl": {
         "back": "←  Powrót do menu",
         "title": "Ustawienia",
-        "subtitle": "Skonfiguruj preferencje aplikacji",
+        "subtitle": "Wygląd zmienia się od razu jako podgląd. Powrót odrzuca niezapisane zmiany.",
         "audio": "Ustawienia dźwięku",
         "volume": "Głośność",
         "appearance": "Wygląd",
@@ -68,15 +68,15 @@ TEXTS = {
         "high_contrast": "Wysoki kontrast",
         "large_text": "Duży tekst",
         "keyboard_shortcuts": "Skróty klawiaturowe",
-        "cancel": "Anuluj",
-        "save": "Zapisz ustawienia",
-        "volume_tooltip": "Controls melody playback volume.",
-        "theme_tooltip": "Changes the application appearance between light and black theme.",
-        "language_tooltip": "Changes the interface language.",
-        "default_tempo_tooltip": "Default tempo for new projects. Allowed range: 40–240 BPM.",
-        "high_contrast_tooltip": "Increases contrast to improve readability.",
-        "large_text_tooltip": "Makes interface text larger.",
-        "keyboard_shortcuts_tooltip": "Enables keyboard shortcuts in the editor, for example arrows to move notes and Delete to remove them.",
+        "cancel": "Powrót",
+        "save": "Zapisz i wróć",
+        "volume_tooltip": "Ustawia głośność odtwarzania melodii.",
+        "theme_tooltip": "Pokazuje motyw od razu. Kliknij Zapisz i wróć, aby zachować zmianę.",
+        "language_tooltip": "Pokazuje język od razu. Kliknij Zapisz i wróć, aby zachować zmianę.",
+        "default_tempo_tooltip": "Domyślne tempo dla nowych projektów. Dozwolony zakres: 40–240 BPM.",
+        "high_contrast_tooltip": "Pokazuje wysoki kontrast od razu. Kliknij Zapisz i wróć, aby zachować zmianę.",
+        "large_text_tooltip": "Pokazuje większy tekst od razu. Kliknij Zapisz i wróć, aby zachować zmianę.",
+        "keyboard_shortcuts_tooltip": "Włącza skróty klawiaturowe w edytorze, np. strzałki do przesuwania nut i Delete do usuwania.",
     },
 }
 
@@ -88,6 +88,7 @@ class SettingsScreen(BaseScreen):
         super().__init__(controller)
 
         self._is_refreshing = False
+        self._saved_settings_snapshot = AppSettings()
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(28, 28, 28, 28)
@@ -119,7 +120,7 @@ class SettingsScreen(BaseScreen):
 
         self.back_button = self.normal_button("")
         self.back_button.setMaximumWidth(210)
-        self.back_button.clicked.connect(lambda: self.controller.show_screen("start"))
+        self.back_button.clicked.connect(self.discard_changes)
 
         self.title_label = self.make_title("")
         self.subtitle_label = self.make_subtitle("")
@@ -147,6 +148,7 @@ class SettingsScreen(BaseScreen):
         self.volume_slider.setRange(0, 100)
         self.volume_slider.setValue(75)
         self.volume_slider.valueChanged.connect(self._update_volume_label)
+        self.volume_slider.valueChanged.connect(self._handle_live_settings_changed)
 
         layout.addLayout(volume_row)
         layout.addWidget(self.volume_slider)
@@ -159,6 +161,7 @@ class SettingsScreen(BaseScreen):
         self.theme_label = self.make_field_label("")
         self.theme_input = QComboBox()
         self.theme_input.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.theme_input.currentIndexChanged.connect(self._handle_live_settings_changed)
 
         self.language_label = self.make_field_label("")
         self.language_input = QComboBox()
@@ -178,10 +181,11 @@ class SettingsScreen(BaseScreen):
         layout.addWidget(self.project_defaults_title)
 
         self.default_tempo_label = self.make_field_label("")
-        self.default_tempo_input = QSpinBox()
+        self.default_tempo_input = ReadableSpinBox()
         self.default_tempo_input.setRange(40, 240)
         self.default_tempo_input.setValue(120)
         self.default_tempo_input.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.default_tempo_input.valueChanged.connect(self._handle_live_settings_changed)
 
         layout.addWidget(self.default_tempo_label)
         layout.addWidget(self.default_tempo_input)
@@ -195,6 +199,10 @@ class SettingsScreen(BaseScreen):
         self.large_text = QCheckBox()
         self.keyboard_shortcuts = QCheckBox()
 
+        self.high_contrast.toggled.connect(self._handle_live_settings_changed)
+        self.large_text.toggled.connect(self._handle_live_settings_changed)
+        self.keyboard_shortcuts.toggled.connect(self._handle_live_settings_changed)
+
         layout.addWidget(self.high_contrast)
         layout.addWidget(self.large_text)
         layout.addWidget(self.keyboard_shortcuts)
@@ -204,7 +212,7 @@ class SettingsScreen(BaseScreen):
         self.cancel_button = self.normal_button("")
         self.save_button = self.primary_button("")
 
-        self.cancel_button.clicked.connect(lambda: self.controller.show_screen("start"))
+        self.cancel_button.clicked.connect(self.discard_changes)
         self.save_button.clicked.connect(self.save_settings)
 
         layout.addLayout(self.horizontal_buttons(self.cancel_button, self.save_button))
@@ -212,7 +220,9 @@ class SettingsScreen(BaseScreen):
     def refresh(self) -> None:
         self._is_refreshing = True
 
-        settings = self.controller.settings
+        # Snapshot is the last saved/accepted state. Live changes below are only a preview.
+        self._saved_settings_snapshot = AppSettings.from_dict(self.controller.settings.to_dict())
+        settings = self._saved_settings_snapshot
 
         self._set_combo_value(self.language_input, settings.language)
 
@@ -231,7 +241,19 @@ class SettingsScreen(BaseScreen):
         self._is_refreshing = False
 
     def save_settings(self) -> None:
-        settings = AppSettings(
+        settings = self._current_form_settings()
+        self.controller.settings = settings
+        self.controller.storage.save_settings(settings)
+        self.controller.apply_current_styles()
+        self.controller.show_screen("start")
+
+    def discard_changes(self) -> None:
+        self.controller.settings = AppSettings.from_dict(self._saved_settings_snapshot.to_dict())
+        self.controller.apply_current_styles()
+        self.controller.show_screen("start")
+
+    def _current_form_settings(self) -> AppSettings:
+        return AppSettings(
             language=str(self.language_input.currentData()),
             volume=int(self.volume_slider.value()),
             theme=str(self.theme_input.currentData()),
@@ -241,10 +263,23 @@ class SettingsScreen(BaseScreen):
             keyboard_shortcuts=self.keyboard_shortcuts.isChecked(),
         )
 
-        self.controller.settings = settings
-        self.controller.storage.save_settings(settings)
+    def _preview_current_settings(self) -> None:
+        self.controller.settings = self._current_form_settings()
         self.controller.apply_current_styles()
-        self.controller.show_screen("start")
+
+    def _handle_live_settings_changed(self, *_: object) -> None:
+        if self._is_refreshing:
+            return
+
+        self._preview_current_settings()
+
+    def _handle_language_preview(self, *_: object) -> None:
+        if self._is_refreshing:
+            return
+
+        self._apply_texts()
+        self._apply_tooltips()
+        self._preview_current_settings()
 
     def _apply_tooltips(self) -> None:
         self.volume_slider.setToolTip(self._t("volume_tooltip"))
@@ -295,13 +330,6 @@ class SettingsScreen(BaseScreen):
         self._set_combo_value(self.theme_input, normalized_theme)
 
         self.theme_input.blockSignals(False)
-
-    def _handle_language_preview(self, *_: object) -> None:
-        if self._is_refreshing:
-            return
-
-        self._apply_texts()
-        self._apply_tooltips()
 
     def _update_volume_label(self, value: int) -> None:
         self.volume_value.setText(f"{value}%")

@@ -1,25 +1,28 @@
 from __future__ import annotations
 
-import sys
 import json
 import logging
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from app.core.audio_export import export_project_to_audio
+from app.core.midi import export_project_to_midi, import_project_from_midi
 from app.core.models import AppSettings, Project
 
 LOGGER = logging.getLogger(__name__)
 
 
 class Storage:
-    """Local JSON storage used as a lightweight replacement for backend persistence."""
+    """Local storage for projects, settings and import/export operations."""
 
     def __init__(self) -> None:
         if getattr(sys, "frozen", False):
             self.root_dir = Path(sys.executable).resolve().parent
         else:
             self.root_dir = Path(__file__).resolve().parents[2]
+
         self.data_dir = self.root_dir / "data"
         self.data_dir.mkdir(parents=True, exist_ok=True)
 
@@ -73,27 +76,37 @@ class Storage:
         return projects
 
     def export_project_to_file(self, project: Project, target_path: str | Path) -> None:
-        """Export a single project to a user-selected JSON file."""
+        """Export a project as JSON or MIDI, depending on the file extension."""
         path = Path(target_path)
+        suffix = path.suffix.lower()
 
-        if path.suffix.lower() != ".json":
-            path = path.with_suffix(".json")
+        if suffix in {"", ".json"}:
+            if suffix == "":
+                path = path.with_suffix(".json")
+            self._export_project_to_json(project, path)
+            return
 
-        export_data = project.to_dict()
-        export_data["exported_at"] = self._now_iso()
-        export_data["file_type"] = "melody_editor_project"
+        if suffix in {".mid", ".midi"}:
+            export_project_to_midi(project, path)
+            return
 
-        self._write_json(path, export_data)
+        raise ValueError("Unsupported project format. Use JSON or MIDI.")
+
+    def export_audio_to_file(self, project: Project, target_path: str | Path) -> None:
+        """Export a project as an audio file. WAV works without extra tools; MP3 requires FFmpeg."""
+        export_project_to_audio(project, target_path)
 
     def import_project_from_file(self, source_path: str | Path) -> Project:
-        """Import a project from a user-selected JSON file."""
+        """Import a project from JSON or MIDI."""
         path = Path(source_path)
-        data = self._read_json(path, default=None)
+        suffix = path.suffix.lower()
 
-        if not isinstance(data, dict):
-            raise ValueError("Selected file does not contain a valid project.")
-
-        project = Project.from_dict(data)
+        if suffix == ".json":
+            project = self._import_project_from_json(path)
+        elif suffix in {".mid", ".midi"}:
+            project = import_project_from_midi(path)
+        else:
+            raise ValueError("Unsupported project format. Import supports JSON and MIDI only. MP3/WAV are audio files and cannot be converted back to editable notes.")
 
         if not project.name.strip():
             raise ValueError("Imported project has an empty name.")
@@ -128,6 +141,21 @@ class Storage:
 
     def save_settings(self, settings: AppSettings) -> None:
         self._write_json(self.settings_path, settings.to_dict())
+
+    def _export_project_to_json(self, project: Project, path: Path) -> None:
+        export_data = project.to_dict()
+        export_data["exported_at"] = self._now_iso()
+        export_data["file_type"] = "melody_editor_project"
+
+        self._write_json(path, export_data)
+
+    def _import_project_from_json(self, path: Path) -> Project:
+        data = self._read_json(path, default=None)
+
+        if not isinstance(data, dict):
+            raise ValueError("Selected file does not contain a valid project.")
+
+        return Project.from_dict(data)
 
     def _replace_or_insert_project(self, projects: list[Project], project: Project) -> list[Project]:
         for index, existing_project in enumerate(projects):

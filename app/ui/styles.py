@@ -501,7 +501,7 @@ QSlider::handle:horizontal {
     border: 2px solid #000000;
 }
 """
-HIGH_CONTRAST_LIGHT_QSS  = """
+HIGH_CONTRAST_LIGHT_QSS = """
 QMainWindow, QWidget#appRoot {
     background: #ffffff;
     color: #000000;
@@ -609,20 +609,156 @@ QLabel#sectionTitle {
 """
 
 
+ADDITIONAL_QSS = """
+/* Larger menu icon and readable menu buttons */
+QLabel#menuIcon {
+    font-size: 44px;
+    font-weight: 700;
+}
+
+QPushButton[menuButton="true"] {
+    font-size: 15px;
+    font-weight: 600;
+    min-height: 50px;
+}
+
+
+/* Message boxes must stay readable in dark/high-contrast modes. */
+QMessageBox {
+    background: #ffffff;
+    color: #1e293b;
+}
+
+QMessageBox QLabel {
+    color: #1e293b;
+    font-size: 14px;
+}
+
+QMessageBox QPushButton {
+    min-width: 72px;
+    min-height: 34px;
+}
+
+/* Wider and fully clickable spinbox buttons. Plus/minus symbols are used in code. */
+QSpinBox {
+    padding-right: 48px;
+}
+
+QSpinBox::up-button,
+QSpinBox::down-button {
+    width: 40px;
+    border-left: 1px solid #cbd5e1;
+    background: #e2e8f0;
+}
+
+QSpinBox::up-button {
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+    border-top-right-radius: 7px;
+}
+
+QSpinBox::down-button {
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    border-bottom-right-radius: 7px;
+}
+
+QSpinBox::up-button:hover,
+QSpinBox::down-button:hover {
+    background: #dbeafe;
+}
+
+QSpinBox::up-arrow,
+QSpinBox::down-arrow {
+    width: 14px;
+    height: 14px;
+}
+
+"""
+
+BLACK_ADDITIONAL_QSS = """
+QSpinBox::up-button,
+QSpinBox::down-button {
+    border-left-color: #64748b;
+    background: #1e293b;
+}
+
+QSpinBox::up-button:hover,
+QSpinBox::down-button:hover {
+    background: #334155;
+}
+
+QMessageBox {
+    background: #0f172a;
+    color: #f8fafc;
+}
+
+QMessageBox QLabel {
+    color: #f8fafc;
+}
+"""
+
+HIGH_CONTRAST_BLACK_ADDITIONAL_QSS = """
+QSpinBox::up-button,
+QSpinBox::down-button {
+    border-left: 2px solid #ffffff;
+    background: #111111;
+}
+
+QSpinBox::up-button:hover,
+QSpinBox::down-button:hover {
+    background: #1f2937;
+}
+
+QMessageBox {
+    background: #000000;
+    color: #ffffff;
+    border: 2px solid #ffffff;
+}
+
+QMessageBox QLabel {
+    color: #ffffff;
+}
+"""
+
+HIGH_CONTRAST_LIGHT_ADDITIONAL_QSS = """
+QSpinBox::up-button,
+QSpinBox::down-button {
+    border-left: 2px solid #000000;
+    background: #eeeeee;
+}
+
+QSpinBox::up-button:hover,
+QSpinBox::down-button:hover {
+    background: #dddddd;
+}
+
+QMessageBox {
+    background: #ffffff;
+    color: #000000;
+    border: 2px solid #000000;
+}
+
+QMessageBox QLabel {
+    color: #000000;
+}
+"""
+
+
 def build_stylesheet(settings: AppSettings) -> str:
     theme = settings.theme.lower().strip()
     is_black_theme = theme in {"black", "dark"}
 
-    sheet = BASE_QSS
+    sheet = BASE_QSS + ADDITIONAL_QSS
 
     if is_black_theme:
-        sheet += BLACK_QSS
+        sheet += BLACK_QSS + BLACK_ADDITIONAL_QSS
 
     if settings.high_contrast:
         if is_black_theme:
-            sheet += HIGH_CONTRAST_BLACK_QSS
+            sheet += HIGH_CONTRAST_BLACK_QSS + HIGH_CONTRAST_BLACK_ADDITIONAL_QSS
         else:
-            sheet += HIGH_CONTRAST_LIGHT_QSS
+            sheet += HIGH_CONTRAST_LIGHT_QSS + HIGH_CONTRAST_LIGHT_ADDITIONAL_QSS
 
     if settings.large_text:
         sheet += LARGE_TEXT_QSS

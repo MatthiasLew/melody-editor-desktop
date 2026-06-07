@@ -3,10 +3,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QComboBox, QFormLayout, QHBoxLayout, QLineEdit, QSpinBox, QVBoxLayout
+from PySide6.QtWidgets import QComboBox, QFormLayout, QHBoxLayout, QLineEdit, QVBoxLayout
 
 from app.core.models import Project
 from app.ui.screens.base import BaseScreen
+from app.ui.widgets import ReadableSpinBox
 
 if TYPE_CHECKING:
     from app.main import MainWindow
@@ -75,7 +76,7 @@ class NewProjectScreen(BaseScreen):
         self.project_name_input.setMinimumHeight(42)
         self.project_name_input.setMaxLength(60)
 
-        self.tempo_input = QSpinBox()
+        self.tempo_input = ReadableSpinBox()
         self.tempo_input.setRange(40, 240)
         self.tempo_input.setValue(120)
         self.tempo_input.setSuffix(" BPM")
@@ -84,7 +85,7 @@ class NewProjectScreen(BaseScreen):
         self.tempo_input.setAlignment(Qt.AlignCenter)
         self.tempo_input.setToolTip("Zakres tempa: 40–240 BPM")
 
-        self.bars_input = QSpinBox()
+        self.bars_input = ReadableSpinBox()
         self.bars_input.setRange(1, 64)
         self.bars_input.setValue(8)
         self.bars_input.setAccelerated(True)

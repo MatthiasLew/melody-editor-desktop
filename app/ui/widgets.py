@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import QPoint, QRect, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QKeyEvent, QMouseEvent, QPainter, QPaintEvent, QPen
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QAbstractSpinBox, QSpinBox, QStyle, QStyleOptionSpinBox, QWidget
 
 from app.core.models import Note
 
@@ -30,6 +30,53 @@ DEFAULT_PITCH_RANGE = "c4-c6"
 PITCH_NAMES = PITCH_RANGES[DEFAULT_PITCH_RANGE]
 
 
+
+
+class ReadableSpinBox(QSpinBox):
+    """QSpinBox with explicitly painted plus/minus symbols.
+
+    Some Windows/PySide6 style combinations hide the native spinbox
+    arrows when QSS is used. This subclass keeps the native clickable
+    controls, but draws readable + and − symbols over the button area.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.PlusMinus)
+
+    def paintEvent(self, event: QPaintEvent) -> None:  # noqa: N802
+        super().paintEvent(event)
+
+        option = QStyleOptionSpinBox()
+        self.initStyleOption(option)
+
+        up_rect = self.style().subControlRect(
+            QStyle.ComplexControl.CC_SpinBox,
+            option,
+            QStyle.SubControl.SC_SpinBoxUp,
+            self,
+        )
+        down_rect = self.style().subControlRect(
+            QStyle.ComplexControl.CC_SpinBox,
+            option,
+            QStyle.SubControl.SC_SpinBoxDown,
+            self,
+        )
+
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        color = self.palette().color(self.foregroundRole())
+        painter.setPen(color)
+
+        font = QFont(self.font())
+        font.setBold(True)
+        font.setPointSize(max(font.pointSize() + 1, 11))
+        painter.setFont(font)
+
+        painter.drawText(up_rect, Qt.AlignmentFlag.AlignCenter, "+")
+        painter.drawText(down_rect, Qt.AlignmentFlag.AlignCenter, "−")
+
 class MelodyGridWidget(QWidget):
     notes_changed = Signal()
 
@@ -47,10 +94,10 @@ class MelodyGridWidget(QWidget):
         self.playback_step = -1
         self.dark_theme = False
         self.keyboard_shortcuts_enabled = True
+
         self.is_drawing = False
         self.is_erasing = False
         self.last_touched_cell: tuple[int, int] | None = None
-        self.keyboard_shortcuts_enabled = True
 
         self.setFocusPolicy(Qt.StrongFocus)
         self.setMinimumSize(1120, 560)
@@ -67,18 +114,14 @@ class MelodyGridWidget(QWidget):
         self.dark_theme = enabled
         self.update()
 
-    def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802
-        if not self.keyboard_shortcuts_enabled:
-            super().keyPressEvent(event)
-            return
-
-        selected = self._selected_note()
+    def set_keyboard_shortcuts_enabled(self, enabled: bool) -> None:
+        self.keyboard_shortcuts_enabled = bool(enabled)
 
     def set_project_data(
-            self,
-            notes: list[Note],
-            bars: int,
-            pitch_range: str = DEFAULT_PITCH_RANGE,
+        self,
+        notes: list[Note],
+        bars: int,
+        pitch_range: str = DEFAULT_PITCH_RANGE,
     ) -> None:
         self.pitch_names = PITCH_RANGES.get(
             pitch_range,
@@ -233,7 +276,36 @@ class MelodyGridWidget(QWidget):
 
         super().mousePressEvent(event)
 
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        cell = self._cell_from_point(event.position().toPoint())
+        if cell is None:
+            super().mouseMoveEvent(event)
+            return
+
+        if self.is_drawing and event.buttons() & Qt.LeftButton:
+            self._apply_drag_cell(cell, erase=False)
+            event.accept()
+            return
+
+        if self.is_erasing and event.buttons() & Qt.RightButton:
+            self._apply_drag_cell(cell, erase=True)
+            event.accept()
+            return
+
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        self.is_drawing = False
+        self.is_erasing = False
+        self.last_touched_cell = None
+
+        super().mouseReleaseEvent(event)
+
     def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802
+        if not self.keyboard_shortcuts_enabled:
+            super().keyPressEvent(event)
+            return
+
         selected = self._selected_note()
 
         if selected is None:
@@ -262,30 +334,6 @@ class MelodyGridWidget(QWidget):
 
         super().keyPressEvent(event)
 
-    def mouseMoveEvent(self, event: QMouseEvent) -> None:  # noqa: N802
-        cell = self._cell_from_point(event.position().toPoint())
-        if cell is None:
-            super().mouseMoveEvent(event)
-            return
-
-        if self.is_drawing and event.buttons() & Qt.LeftButton:
-            self._apply_drag_cell(cell, erase=False)
-            event.accept()
-            return
-
-        if self.is_erasing and event.buttons() & Qt.RightButton:
-            self._apply_drag_cell(cell, erase=True)
-            event.accept()
-            return
-
-        super().mouseMoveEvent(event)
-
-        def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # noqa: N802
-            self.is_drawing = False
-            self.is_erasing = False
-            self.last_touched_cell = None
-
-            super().mouseReleaseEvent(event)
     def _select_or_create_note(self, note: Note | None, pitch: int, time: int) -> None:
         if note is not None:
             self.selected_note_id = note.id

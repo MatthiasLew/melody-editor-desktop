@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QVBoxLayout,
 )
+
 from app.core.models import Project
 from app.ui.screens.base import BaseScreen
 
@@ -23,11 +24,11 @@ TEXTS = {
     "en": {
         "back": "←  Back to Editor",
         "title": "Save Project",
-        "subtitle": "Save your melody project",
+        "subtitle": "Save your melody project or export it to common file formats",
         "file_name": "File Name",
         "file_placeholder": "Enter project file name",
         "save_location": "Save Location",
-        "location": "▣  Local Storage / JSON",
+        "location": "💾  Local project library / JSON",
         "recent_files": "Recent Files",
         "no_recent": "No recent files",
         "cancel": "Cancel",
@@ -35,19 +36,24 @@ TEXTS = {
         "message_title": "Save Project",
         "no_project": "There is no active project to save.",
         "empty_name": "File name cannot be empty.",
-        "saved": "Project saved locally to JSON.",
-        "export": "Export JSON...",
-        "exported": "Project exported successfully.",
-        "export_error": "Could not export project.",
+        "saved": "Project saved locally.",
+        "export_project": "📤  Export Project...",
+        "export_audio": "🎧  Export Audio...",
+        "project_exported": "Project exported successfully.",
+        "audio_exported": "Audio exported successfully.",
+        "export_error": "Could not export file.",
+        "project_filter": "Project files (*.json *.mid *.midi);;JSON files (*.json);;MIDI files (*.mid *.midi)",
+        "audio_filter": "WAV audio (*.wav);;MP3 audio (*.mp3)",
+        "mp3_ffmpeg_missing": "MP3 export requires FFmpeg. FFmpeg was not found in PATH. Export to WAV or install FFmpeg and restart the app.",
     },
     "pl": {
         "back": "←  Powrót do edytora",
         "title": "Zapisz projekt",
-        "subtitle": "Zapisz swój projekt melodii",
+        "subtitle": "Zapisz projekt melodii albo wyeksportuj go do popularnych formatów",
         "file_name": "Nazwa pliku",
         "file_placeholder": "Wpisz nazwę projektu",
         "save_location": "Miejsce zapisu",
-        "location": "▣  Lokalny zapis / JSON",
+        "location": "💾  Lokalna biblioteka projektów / JSON",
         "recent_files": "Ostatnie pliki",
         "no_recent": "Brak ostatnich plików",
         "cancel": "Anuluj",
@@ -55,28 +61,33 @@ TEXTS = {
         "message_title": "Zapis projektu",
         "no_project": "Brak aktywnego projektu do zapisania.",
         "empty_name": "Nazwa pliku nie może być pusta.",
-        "saved": "Projekt został zapisany lokalnie do JSON.",
-        "export": "Eksportuj JSON...",
-        "exported": "Projekt został wyeksportowany.",
-        "export_error": "Nie udało się wyeksportować projektu.",
+        "saved": "Projekt został zapisany lokalnie.",
+        "export_project": "📤  Eksportuj projekt...",
+        "export_audio": "🎧  Eksportuj audio...",
+        "project_exported": "Projekt został wyeksportowany.",
+        "audio_exported": "Audio zostało wyeksportowane.",
+        "export_error": "Nie udało się wyeksportować pliku.",
+        "project_filter": "Pliki projektu (*.json *.mid *.midi);;Pliki JSON (*.json);;Pliki MIDI (*.mid *.midi)",
+        "audio_filter": "Audio WAV (*.wav);;Audio MP3 (*.mp3)",
+        "mp3_ffmpeg_missing": "Eksport MP3 wymaga programu FFmpeg. Nie znaleziono FFmpeg w zmiennej PATH. Wyeksportuj WAV albo zainstaluj FFmpeg i uruchom aplikację ponownie.",
     },
 }
 
 
 class SaveProjectScreen(BaseScreen):
-    """Screen used to save the current project into local JSON storage."""
+    """Screen used to save and export the current project."""
 
     def __init__(self, controller: "MainWindow") -> None:
         super().__init__(controller)
 
-        card = self.make_card(max_width=760)
+        card = self.make_card(max_width=820)
 
         layout = QVBoxLayout(card)
         layout.setContentsMargins(42, 36, 42, 36)
         layout.setSpacing(18)
 
         self.back_button = self.normal_button("")
-        self.back_button.setMaximumWidth(190)
+        self.back_button.setMaximumWidth(210)
         self.back_button.clicked.connect(lambda: self.controller.show_screen("editor"))
 
         self.title_label = self.make_title("")
@@ -117,17 +128,20 @@ class SaveProjectScreen(BaseScreen):
         layout.addWidget(self.recent_files)
 
         self.cancel_button = self.normal_button("")
-        self.export_button = self.normal_button("")
+        self.export_project_button = self.normal_button("")
+        self.export_audio_button = self.normal_button("")
         self.save_button = self.primary_button("")
 
         self.cancel_button.clicked.connect(lambda: self.controller.show_screen("editor"))
-        self.export_button.clicked.connect(self.export_project)
+        self.export_project_button.clicked.connect(self.export_project)
+        self.export_audio_button.clicked.connect(self.export_audio)
         self.save_button.clicked.connect(self.save_project)
 
         layout.addLayout(
             self.horizontal_buttons(
                 self.cancel_button,
-                self.export_button,
+                self.export_project_button,
+                self.export_audio_button,
                 self.save_button,
             )
         )
@@ -148,27 +162,9 @@ class SaveProjectScreen(BaseScreen):
         self.file_name_input.setText(str(project_name))
 
     def save_project(self) -> None:
-        project = self.controller.current_project
-
+        project = self._validated_current_project()
         if project is None:
-            QMessageBox.warning(
-                self,
-                self._t("message_title"),
-                self._t("no_project"),
-            )
             return
-
-        name = self._normalized_project_name()
-
-        if not name:
-            QMessageBox.warning(
-                self,
-                self._t("message_title"),
-                self._t("empty_name"),
-            )
-            return
-
-        project.name = name
 
         self.controller.storage.save_project_to_library(project)
         self.controller.set_current_project(project)
@@ -182,6 +178,60 @@ class SaveProjectScreen(BaseScreen):
         self.controller.show_screen("editor")
 
     def export_project(self) -> None:
+        project = self._validated_current_project()
+        if project is None:
+            return
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            self._t("export_project"),
+            f"{project.name}.json",
+            self._t("project_filter"),
+        )
+
+        if not file_path:
+            return
+
+        try:
+            self.controller.storage.export_project_to_file(project, file_path)
+        except Exception as error:
+            self._show_export_error(error)
+            return
+
+        QMessageBox.information(
+            self,
+            self._t("message_title"),
+            self._t("project_exported"),
+        )
+
+    def export_audio(self) -> None:
+        project = self._validated_current_project()
+        if project is None:
+            return
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            self._t("export_audio"),
+            f"{project.name}.wav",
+            self._t("audio_filter"),
+        )
+
+        if not file_path:
+            return
+
+        try:
+            self.controller.storage.export_audio_to_file(project, file_path)
+        except Exception as error:
+            self._show_export_error(error)
+            return
+
+        QMessageBox.information(
+            self,
+            self._t("message_title"),
+            self._t("audio_exported"),
+        )
+
+    def _validated_current_project(self) -> Project | None:
         project = self.controller.current_project
 
         if project is None:
@@ -190,7 +240,7 @@ class SaveProjectScreen(BaseScreen):
                 self._t("message_title"),
                 self._t("no_project"),
             )
-            return
+            return None
 
         name = self._normalized_project_name()
 
@@ -200,35 +250,17 @@ class SaveProjectScreen(BaseScreen):
                 self._t("message_title"),
                 self._t("empty_name"),
             )
-            return
+            return None
 
         project.name = name
         self.controller.set_current_project(project)
+        return project
 
-        file_path, _ = QFileDialog.getSaveFileName(
-            self,
-            self._t("export"),
-            f"{project.name}.json",
-            "JSON files (*.json)",
-        )
-
-        if not file_path:
-            return
-
-        try:
-            self.controller.storage.export_project_to_file(project, file_path)
-        except Exception as error:
-            QMessageBox.critical(
-                self,
-                self._t("message_title"),
-                f"{self._t('export_error')}\n\n{error}",
-            )
-            return
-
-        QMessageBox.information(
+    def _show_export_error(self, error: Exception) -> None:
+        QMessageBox.critical(
             self,
             self._t("message_title"),
-            self._t("exported"),
+            f"{self._t('export_error')}\n\n{error}",
         )
 
     def _load_current_project_name(self) -> None:
@@ -265,7 +297,8 @@ class SaveProjectScreen(BaseScreen):
         self.location_text.setText(self._t("location"))
         self.recent_files_label.setText(self._t("recent_files"))
         self.cancel_button.setText(self._t("cancel"))
-        self.export_button.setText(self._t("export"))
+        self.export_project_button.setText(self._t("export_project"))
+        self.export_audio_button.setText(self._t("export_audio"))
         self.save_button.setText(self._t("save"))
 
     def _normalized_project_name(self) -> str:

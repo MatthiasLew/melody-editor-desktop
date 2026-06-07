@@ -31,14 +31,15 @@ TEXTS = {
         "select_details": "Select a project to view details",
         "no_projects": "No saved projects found",
         "back": "Back",
-        "open": "▣  Open Project",
+        "open": "📂  Open Project",
         "delete": "Delete",
         "warning_title": "Load Project",
         "select_first": "Select a project first.",
         "delete_title": "Delete Project",
-        "import": "Import JSON...",
+        "import": "Import Project...",
         "imported": "Project imported successfully.",
-        "import_error": "Could not import selected file.",
+        "import_error": "Could not import selected project file.",
+        "unsupported_audio_import": "Import supports JSON and MIDI project files only. MP3/WAV are final audio files, so this app cannot convert them back into editable notes.",
         "delete_question": "Delete project '{name}'?",
         "details": (
             "Tempo: {tempo} BPM\n"
@@ -58,11 +59,12 @@ TEXTS = {
         "select_details": "Wybierz projekt, aby zobaczyć szczegóły",
         "no_projects": "Brak zapisanych projektów",
         "back": "Powrót",
-        "open": "▣  Otwórz projekt",
+        "open": "📂  Otwórz projekt",
         "delete": "Usuń",
-        "import": "Importuj JSON...",
+        "import": "Importuj projekt...",
         "imported": "Projekt został zaimportowany.",
-        "import_error": "Nie udało się zaimportować wybranego pliku.",
+        "import_error": "Nie udało się zaimportować wybranego pliku projektu.",
+        "unsupported_audio_import": "Import obsługuje tylko pliki projektu JSON i MIDI. MP3/WAV są gotowym audio, więc aplikacja nie zamienia ich z powrotem na edytowalne nuty.",
         "warning_title": "Wczytaj projekt",
         "select_first": "Najpierw wybierz projekt.",
         "delete_title": "Usuń projekt",
@@ -227,7 +229,7 @@ class LoadProjectScreen(BaseScreen):
             self,
             self._t("import"),
             "",
-            "JSON files (*.json)",
+            "Project files (*.json *.mid *.midi);;JSON files (*.json);;MIDI files (*.mid *.midi)",
         )
 
         if not file_path:
@@ -295,7 +297,7 @@ class LoadProjectScreen(BaseScreen):
 
         for project in self.projects:
             date = self.controller.format_date(project.saved_at or project.created_at)
-            self.project_list.addItem(QListWidgetItem(f"♫  {project.name}\n    {date}"))
+            self.project_list.addItem(QListWidgetItem(f"🎵  {project.name}\n    {date}"))
 
         self.project_list.setCurrentRow(0)
 
